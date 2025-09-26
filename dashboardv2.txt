@@ -1,0 +1,751 @@
+import { Component, OnInit } from '@angular/core';
+import { ChartOptions, ChartType, ChartDataSets } from 'chart.js';
+import { Label, Color } from 'ng2-charts';
+
+@Component({
+  selector: 'app-dashboard',
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.css']
+})
+export class DashboardComponent implements OnInit {
+
+  // Financial Performance Data
+  financialPerformance = {
+    gtvData: { value: '₹24L GTV', change: '+5.2% vs Last Month', trend: 'up' },
+    revenue: { value: '₹8.5L Revenue', change: '-2.5% vs Last Month', trend: 'down' },
+    takeRate: { value: '1.2% Take Rate', change: 'Stable vs Last Month', trend: 'stable' },
+    netRevenue: { value: '₹6.2L Net Revenue', change: '-5.5% vs Last Month', trend: 'down' }
+  };
+
+  // Top Merchants Data
+  topMerchants = [
+    { name: 'TechCorp Solutions', gtv: '₹2.4L GTV', revenue: '₹35K Revenue' },
+    { name: 'Digital Payments Ltd', gtv: '₹2.1L GTV', revenue: '₹32K Revenue' },
+    { name: 'E-commerce Hub', gtv: '₹1.8L GTV', revenue: '₹28K Revenue' },
+    { name: 'FinTech Innovations', gtv: '₹1.6L GTV', revenue: '₹26K Revenue' },
+    { name: 'Online Retail Pro', gtv: '₹1.4L GTV', revenue: '₹25K Revenue' },
+    { name: 'Payment Gateway Co', gtv: '₹1.3L GTV', revenue: '₹24K Revenue' },
+    { name: 'Digital Commerce', gtv: '₹1.1L GTV', revenue: '₹22K Revenue' },
+    { name: 'Smart Pay Systems', gtv: '₹0.9L GTV', revenue: '₹18K Revenue' },
+    { name: 'Mobile Payments Inc', gtv: '₹0.8L GTV', revenue: '₹16K Revenue' },
+    { name: 'Quick Transaction Ltd', gtv: '₹0.7L GTV', revenue: '₹14K Revenue' }
+  ];
+
+  // Risk and Compliance Data
+  riskCompliance = {
+    fraudRate: { value: '0.3%', status: 'good' },
+    chargebackRate: { value: '0.8%', status: 'warning' },
+    blockedMerchants: { value: '3', detail: 'Risk Assessment (▲ This Month)' },
+    settlementBreach: { value: '2', detail: 'SLA Violation (▲ This Week)' }
+  };
+
+  // Operational Health Data
+  operationalHealth = {
+    successRate: { value: '94.2%', change: '+0.5%', trend: 'up' },
+    activeMerchants: { value: '15', detail: 'New This Month', trend: 'up' },
+    onboardingCycle: { value: '28 Days', change: '-2 Days', trend: 'down' },
+    inactiveMerchants: { value: '0.5%', change: '-0.4%', trend: 'down' }
+  };
+
+  // Current Critical Issues
+  criticalIssues = [
+    { priority: 'CRITICAL', issue: 'Payment Gateway Timeout', time: '2h 15m', status: 'critical' },
+    { priority: 'CRITICAL', issue: 'Database Connection Failed', time: '45m', status: 'critical' },
+    { priority: 'Critical', issue: 'SSL Certificate Expired', time: '1d 3h', status: 'critical' },
+    { priority: 'Critical', issue: 'Authentication Service Down', time: '30m', status: 'critical' },
+    { priority: 'Critical', issue: 'Load Balancer Failure', time: '1h 20m', status: 'critical' },
+    { priority: 'High Priority', issue: 'Memory Leak Detected', time: '4h 30m', status: 'high' },
+    { priority: 'High Priority', issue: 'Cache Server Overload', time: '2h 45m', status: 'high' },
+    { priority: 'Warning', issue: 'API Rate Limit Exceeded', time: '6h 15m', status: 'warning' },
+    { priority: 'Info', issue: 'Network Latency Spike', time: '30 10m', status: 'info' },
+    { priority: 'Info', issue: 'Disk Space Low', time: '1d 2h', status: 'info' }
+  ];
+
+  // System Health Monitoring
+  systemHealth = {
+    uptime: { value: '99.99%', status: 'excellent' },
+    failureRate: { value: '0.01%', status: 'excellent' },
+    avgLatency: { value: '150ms', status: 'good' },
+    avgResolution: { value: '30 min', status: 'good' }
+  };
+
+  // MOP Performance Chart Configuration
+  mopPerformanceChartOptions: ChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      yAxes: [{
+        ticks: {
+          beginAtZero: true,
+          max: 100,
+          fontColor: '#666',
+          fontSize: 10
+        },
+        gridLines: {
+          color: 'rgba(0,0,0,0.1)',
+          drawBorder: false
+        }
+      }],
+      xAxes: [{
+        ticks: {
+          fontColor: '#666',
+          fontSize: 10
+        },
+        gridLines: {
+          display: false
+        }
+      }]
+    },
+    legend: {
+      display: false
+    },
+    elements: {
+      rectangle: {
+        borderWidth: 0
+      }
+    }
+  };
+
+  mopPerformanceChartLabels: Label[] = ['UPI', 'Debit Card', 'Credit Card', 'Net Banking', 'Wallet'];
+  mopPerformanceChartType: ChartType = 'bar';
+  mopPerformanceChartData: ChartDataSets[] = [
+    { 
+      data: [85, 78, 82, 75, 70], 
+      backgroundColor: ['#2c3e50', '#34495e', '#7f8c8d', '#95a5a6', '#bdc3c7'],
+      borderWidth: 0
+    }
+  ];
+
+  // Acquirer Performance Chart Configuration
+  acquirerPerformanceChartOptions: ChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      yAxes: [{
+        ticks: {
+          beginAtZero: true,
+          max: 100,
+          fontColor: '#666',
+          fontSize: 10
+        },
+        gridLines: {
+          color: 'rgba(0,0,0,0.1)',
+          drawBorder: false
+        }
+      }],
+      xAxes: [{
+        ticks: {
+          fontColor: '#666',
+          fontSize: 10
+        },
+        gridLines: {
+          display: false
+        }
+      }]
+    },
+    legend: {
+      display: false
+    }
+  };
+
+  acquirerPerformanceChartLabels: Label[] = ['Acquirer A', 'Acquirer B', 'Acquirer C', 'Acquirer D', 'Acquirer E'];
+  acquirerPerformanceChartType: ChartType = 'bar';
+  acquirerPerformanceChartData: ChartDataSets[] = [
+    { 
+      data: [92, 88, 85, 80, 75], 
+      backgroundColor: ['#2c3e50', '#34495e', '#7f8c8d', '#95a5a6', '#bdc3c7'],
+      borderWidth: 0
+    }
+  ];
+
+  // Top Technical Declines Chart Configuration
+  technicalDeclinesChartOptions: ChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      yAxes: [{
+        ticks: {
+          beginAtZero: true,
+          fontColor: '#666',
+          fontSize: 10
+        },
+        gridLines: {
+          color: 'rgba(0,0,0,0.1)',
+          drawBorder: false
+        }
+      }],
+      xAxes: [{
+        ticks: {
+          fontColor: '#666',
+          fontSize: 10
+        },
+        gridLines: {
+          display: false
+        }
+      }]
+    },
+    legend: {
+      display: false
+    }
+  };
+
+  technicalDeclinesChartLabels: Label[] = ['Gateway Timeout', 'Bank Decline', 'API Failure', 'Connection Lost', 'Server Error'];
+  technicalDeclinesChartType: ChartType = 'bar';
+  technicalDeclinesChartData: ChartDataSets[] = [
+    { 
+      data: [45, 38, 32, 28, 22], 
+      backgroundColor: ['#2c3e50', '#34495e', '#7f8c8d', '#95a5a6', '#bdc3c7'],
+      borderWidth: 0
+    }
+  ];
+
+  constructor() { }
+
+  ngOnInit(): void {
+    // Initialize any additional data or API calls here
+  }
+
+  getTrendIcon(trend: string): string {
+    if (trend === 'up') {
+      return 'fa-arrow-up text-success';
+    } else if (trend === 'down') {
+      return 'fa-arrow-down text-danger';
+    }
+    return 'fa-minus text-muted';
+  }
+
+  getStatusColor(status: string): string {
+    switch(status) {
+      case 'critical': return 'text-danger';
+      case 'high': return 'text-warning';
+      case 'warning': return 'text-warning';
+      case 'info': return 'text-info';
+      case 'good': return 'text-success';
+      case 'excellent': return 'text-success';
+      default: return 'text-muted';
+    }
+  }
+}
+
+
+
+<div class="dashboard-container">
+  <div class="container-fluid px-4 py-4">
+    
+    <!-- Dashboard Header -->
+    <div class="row mb-4">
+      <div class="col-12 text-center">
+        <h1 class="dashboard-title mb-2">Executive Dashboard</h1>
+        <p class="dashboard-subtitle text-muted">Real-time business insights for strategic decision-making</p>
+      </div>
+    </div>
+
+    <!-- Row 1: Financial Performance & Top Merchants -->
+    <div class="row mb-4 equal-height-row">
+      
+      <!-- Financial Performance Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-line-chart me-2"></i>
+              Financial Performance 💰 →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-6 mb-3">
+                <div class="metric-box">
+                  <div class="metric-value">{{ financialPerformance.gtvData.value }}</div>
+                  <div class="metric-change">
+                    <i class="fa {{ getTrendIcon(financialPerformance.gtvData.trend) }} me-1"></i>
+                    {{ financialPerformance.gtvData.change }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="metric-box">
+                  <div class="metric-value">{{ financialPerformance.revenue.value }}</div>
+                  <div class="metric-change">
+                    <i class="fa {{ getTrendIcon(financialPerformance.revenue.trend) }} me-1"></i>
+                    {{ financialPerformance.revenue.change }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="metric-box">
+                  <div class="metric-value">{{ financialPerformance.takeRate.value }}</div>
+                  <div class="metric-change">
+                    <i class="fa {{ getTrendIcon(financialPerformance.takeRate.trend) }} me-1"></i>
+                    {{ financialPerformance.takeRate.change }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="metric-box">
+                  <div class="metric-value">{{ financialPerformance.netRevenue.value }}</div>
+                  <div class="metric-change">
+                    <i class="fa {{ getTrendIcon(financialPerformance.netRevenue.trend) }} me-1"></i>
+                    {{ financialPerformance.netRevenue.change }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Merchants Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-trophy me-2"></i>
+              Top Merchants (10) 🏆 →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="merchants-list">
+              <div *ngFor="let merchant of topMerchants; let i = index" class="merchant-item">
+                <span class="merchant-number">{{ i + 1 }}.</span>
+                <span class="merchant-name">{{ merchant.name }}</span>
+                <span class="merchant-gtv">{{ merchant.gtv }}</span>
+                <span class="merchant-revenue">{{ merchant.revenue }}</span>
+              </div>
+            </div>
+            <div class="text-end mt-3">
+              <a href="#" class="view-details-link">View Details →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Risk & Compliance and Operational Health -->
+    <div class="row mb-4 equal-height-row">
+      
+      <!-- Risk and Compliance Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-shield me-2"></i>
+              Risk and Compliance 🛡️ →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-6 mb-3">
+                <div class="risk-metric">
+                  <div class="risk-value {{ getStatusColor('good') }}">{{ riskCompliance.fraudRate.value }}</div>
+                  <div class="risk-label">Fraud Rate (▲ 0.05%)</div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="risk-metric">
+                  <div class="risk-value {{ getStatusColor('warning') }}">{{ riskCompliance.chargebackRate.value }}</div>
+                  <div class="risk-label">Chargeback Rate (▼ 0.1%)</div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="risk-metric">
+                  <div class="risk-value-large">{{ riskCompliance.blockedMerchants.value }}</div>
+                  <div class="risk-label-small">Blocked Merchants</div>
+                  <div class="risk-detail">{{ riskCompliance.blockedMerchants.detail }}</div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="risk-metric">
+                  <div class="risk-value-large">{{ riskCompliance.settlementBreach.value }}</div>
+                  <div class="risk-label-small">Settlement TAT Breach</div>
+                  <div class="risk-detail">{{ riskCompliance.settlementBreach.detail }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operational Health Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-heartbeat me-2"></i>
+              Operational Health 📊 →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-6 mb-3">
+                <div class="health-metric">
+                  <div class="health-value">{{ operationalHealth.successRate.value }}</div>
+                  <div class="health-label">Success Rate</div>
+                  <div class="health-change">
+                    <i class="fa {{ getTrendIcon(operationalHealth.successRate.trend) }} me-1"></i>
+                    {{ operationalHealth.successRate.change }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="health-metric">
+                  <div class="health-value">{{ operationalHealth.activeMerchants.value }}</div>
+                  <div class="health-label">Active Merchants</div>
+                  <div class="health-change">
+                    <i class="fa {{ getTrendIcon(operationalHealth.activeMerchants.trend) }} me-1"></i>
+                    {{ operationalHealth.activeMerchants.detail }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="health-metric">
+                  <div class="health-value">{{ operationalHealth.onboardingCycle.value }}</div>
+                  <div class="health-label">Onboarding Cycle</div>
+                  <div class="health-change">
+                    <i class="fa {{ getTrendIcon(operationalHealth.onboardingCycle.trend) }} me-1"></i>
+                    {{ operationalHealth.onboardingCycle.change }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 mb-3">
+                <div class="health-metric">
+                  <div class="health-value">{{ operationalHealth.inactiveMerchants.value }}</div>
+                  <div class="health-label">Inactive Merchants</div>
+                  <div class="health-change">
+                    <i class="fa {{ getTrendIcon(operationalHealth.inactiveMerchants.trend) }} me-1"></i>
+                    {{ operationalHealth.inactiveMerchants.change }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: MOP Performance & Current Critical Issues -->
+    <div class="row mb-4 equal-height-row">
+      
+      <!-- MOP Performance Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-bar-chart me-2"></i>
+              MoP Performance 📊 →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height: 250px;">
+              <canvas baseChart
+                [datasets]="mopPerformanceChartData"
+                [labels]="mopPerformanceChartLabels"
+                [options]="mopPerformanceChartOptions"
+                [chartType]="mopPerformanceChartType">
+              </canvas>
+            </div>
+            <div class="text-end mt-3">
+              <a href="#" class="view-details-link">View Details →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Critical Issues Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-exclamation-triangle me-2"></i>
+              Current Critical Issues 🚨 →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="issues-list">
+              <div *ngFor="let issue of criticalIssues; let i = index" class="issue-item">
+                <span class="issue-number">{{ i + 1 }}.</span>
+                <span class="issue-description">{{ issue.issue }}</span>
+                <span class="issue-priority {{ getStatusColor(issue.status) }}">{{ issue.priority }}</span>
+                <span class="issue-time">{{ issue.time }}</span>
+              </div>
+            </div>
+            <div class="text-end mt-3">
+              <a href="#" class="view-details-link">View Details →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: Acquirer Performance & Top Technical Declines -->
+    <div class="row mb-4 equal-height-row">
+      
+      <!-- Acquirer Performance Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-university me-2"></i>
+              Acquirer Performance ❄️ →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height: 250px;">
+              <canvas baseChart
+                [datasets]="acquirerPerformanceChartData"
+                [labels]="acquirerPerformanceChartLabels"
+                [options]="acquirerPerformanceChartOptions"
+                [chartType]="acquirerPerformanceChartType">
+              </canvas>
+            </div>
+            <div class="text-end mt-3">
+              <a href="#" class="view-details-link">View Details →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Technical Declines Section -->
+      <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-line-chart me-2"></i>
+              Top Technical Declines ⚠️ →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height: 250px;">
+              <canvas baseChart
+                [datasets]="technicalDeclinesChartData"
+                [labels]="technicalDeclinesChartLabels"
+                [options]="technicalDeclinesChartOptions"
+                [chartType]="technicalDeclinesChartType">
+              </canvas>
+            </div>
+            <div class="text-end mt-3">
+              <a href="#" class="view-details-link">View Details →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 5: System Health Monitoring -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-desktop me-2"></i>
+              System Health Monitoring 🚨 →
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-lg-3 col-md-6 mb-3">
+                <div class="system-health-metric">
+                  <div class="system-value {{ getStatusColor(systemHealth.uptime.status) }}">{{ systemHealth.uptime.value }}</div>
+                  <div class="system-label">Uptime</div>
+                  <div class="system-status">● Stable</div>
+                </div>
+              </div>
+              <div class="col-lg-3 col-md-6 mb-3">
+                <div class="system-health-metric">
+                  <div class="system-value {{ getStatusColor(systemHealth.failureRate.status) }}">{{ systemHealth.failureRate.value }}</div>
+                  <div class="system-label">Failure Rate</div>
+                  <div class="system-status">● Stable</div>
+                </div>
+              </div>
+              <div class="col-lg-3 col-md-6 mb-3">
+                <div class="system-health-metric">
+                  <div class="system-value {{ getStatusColor(systemHealth.avgLatency.status) }}">{{ systemHealth.avgLatency.value }}</div>
+                  <div class="system-label">Avg. Latency</div>
+                  <div class="system-status">● Good</div>
+                </div>
+              </div>
+              <div class="col-lg-3 col-md-6 mb-3">
+                <div class="system-health-metric">
+                  <div class="system-value {{ getStatusColor(systemHealth.avgResolution.status) }}">{{ systemHealth.avgResolution.value }}</div>
+                  <div class="system-label">Avg. Resolution</div>
+                  <div class="system-status">● Good</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+
+
+
+
+/* Dashboard Container */
+.dashboard-container {
+  background: #f8f9fa;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dashboard Header */
+.dashboard-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-subtitle {
+  font-size: 1rem;
+  color: #6c757d;
+  font-weight: 400;
+}
+
+/* Equal Height Rows */
+.equal-height-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.equal-height-row > [class*="col-"] {
+  display: flex;
+}
+
+.equal-height-row .card {
+  width: 100%;
+}
+
+/* Card Styles */
+.card {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  margin-bottom: 20px;
+}
+
+.card-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1rem 1.25rem;
+  border-radius: 8px 8px 0 0;
+}
+
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.card-body {
+  padding: 1.25rem;
+}
+
+/* Financial Performance Metrics */
+.metric-box {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 1rem;
+  border-left: 4px solid #007bff;
+}
+
+.metric-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 0.25rem;
+}
+
+.metric-change {
+  font-size: 0.8rem;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+}
+
+/* Top Merchants List */
+.merchants-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.merchant-item {
+  display: grid;
+  grid-template-columns: 20px 1fr auto auto;
+  gap: 8px;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f3f4;
+  font-size: 0.85rem;
+  align-items: center;
+}
+
+.merchant-number {
+  font-weight: 600;
+  color: #6c757d;
+}
+
+.merchant-name {
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.merchant-gtv {
+  color: #007bff;
+  font-weight: 600;
+}
+
+.merchant-revenue {
+  color: #28a745;
+  font-weight: 600;
+}
+
+/* Risk and Compliance Metrics */
+.risk-metric {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.risk-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.risk-value-large {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #dc3545;
+  margin-bottom: 0.25rem;
+}
+
+.risk-label {
+  font-size: 0.75rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.risk-label-small {
+  font-size: 0.7rem;
+  color: #6c757d;
+  font-weight: 600;
+}
+
+.risk-detail {
+  font-size: 0.65rem;
+  color: #dc3545;
+  margin-top: 0.25rem;
+}
+
+/* Operational Health Metrics */
+.health-metric {
+  background: #f8f9fa;
