@@ -1,114 +1,490 @@
-<div>
-                <div *ngIf="currentPaymentConfig" formGroupName="dynamicFields">
-                    <div *ngFor="let section of currentPaymentConfig.sections" class="config-section">
-                        <!-- <div class="section-title">{{ section.title }}</div> -->
+// payment-mode1.component.ts
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, FormArray, FormControl } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
+import { PaymentConfigService } from './payment-config.service';
 
-                        <!-- Loop through fields in each section -->
-                        <div *ngFor="let field of section.fields" class="checkbox-section">
+interface Merchant {
+  id: string;
+  name: string;
+}
 
-                            <!-- Info Type Field -->
-                            <div *ngIf="field.type === 'info'" class="info-text">
-                                {{ field.infoText }}
-                            </div>
+interface ConfigField {
+  id: string;
+  label: string;
+  type: 'checkbox' | 'radio' | 'select' | 'text' | 'info';
+  options?: FieldOption[];
+  displayType?: 'grid' | 'list'; // For different layouts
+  gridColumns?: number; // Number of columns for grid layout
+  required?: boolean;
+  infoText?: string; // For info type fields
+}
 
-                            <!-- Checkbox Type Field -->
-                            <div *ngIf="field.type === 'checkbox'">
-                                <h4>{{ field.label }}</h4>
+interface FieldOption {
+  value: string;
+  label: string;
+  isFrequent?: boolean; // For categorizing options like frequent banks
+  isMandatory?: boolean; // For categorizing options like frequent banks
+}
 
-                                <!-- Select All Option (if applicable) -->
-                                <div *ngIf="hasSelectAllOption(field)" class="select-all">
-                                    <label class="checkbox-label select-all-label">
-                                        <input type="checkbox" [formControlName]="field.id + '_selectAll'" />
-                                        <span><strong>Select All</strong></span>
-                                    </label>
-                                </div>
+interface PaymentModeConfig {
+  paymentMode: string;
+  sections: ConfigSection[];
+}
 
-                                <!-- Frequent Options (Grid Layout) -->
-                                <div *ngIf="getFrequentOptions(field).length > 0 && field.displayType === 'grid'"
-                                    class="banks-grid">
-                                    <label *ngFor="let option of getFrequentOptions(field)"
-                                        class="checkbox-label bank-checkbox">
-                                        <input type="checkbox" [value]="option.value"
-                                            (change)="onCheckboxChange(field.id, option.value, $event)"
-                                            [checked]="isOptionSelected(field.id, option.value)" />
-                                        <span>{{ option.label }}</span>
-                                    </label>
-                                </div>
+interface ConfigSection {
+  id: string;
+  title: string;
+  fields: ConfigField[];
+}
 
-                                <!-- All Options or Non-Frequent Options (Standard Layout) -->
-                                <div
-                                    [ngClass]="field.displayType === 'grid' && getFrequentOptions(field).length > 0 ? '' : 'checkbox-group'">
-                                    <!-- Show only "other" options if there are frequent ones displayed above -->
-                                    <ng-container
-                                        *ngIf="getFrequentOptions(field).length > 0 && field.displayType === 'grid'">
-                                        <div *ngIf="getOtherOptions(field).length > 0" class="other-banks">
-                                            <h5 class="other-banks-title">Other Options</h5>
-                                            <div class="checkbox-group">
-                                                <label *ngFor="let option of getOtherOptions(field)"
-                                                    class="checkbox-label">
-                                                    <input type="checkbox" [value]="option.value"
-                                                        (change)="onCheckboxChange(field.id, option.value, $event)"
-                                                        [checked]="isOptionSelected(field.id, option.value)" />
-                                                    <span>{{ option.label }}</span>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </ng-container>
+@Component({
+  selector: 'app-payment-mode',
+  standalone: true,
+  imports: [ReactiveFormsModule, CommonModule],
+  templateUrl: './payment-mode.component.html',
+  styleUrls: ['./payment-mode.component.scss']
+})
+export class PaymentModeComponent implements OnInit {
+  paymentForm: FormGroup;
+  merchants: Merchant[] = [];
+  paymentModes: string[] = [];
+  currentPaymentConfig: PaymentModeConfig | null = null;
 
-                                    <!-- Show all options in standard layout -->
-                                    <ng-container
-                                        *ngIf="!field.displayType || field.displayType !== 'grid' || getFrequentOptions(field).length === 0">
-                                        <label *ngFor="let option of field.options" class="checkbox-label">
-                                            <input type="checkbox" [value]="option.value"
-                                                (change)="onCheckboxChange(field.id, option.value, $event)"
-                                                [checked]="isOptionSelected(field.id, option.value)"
-                                                [disabled]="option.isMandatory" />
-                                            <span>{{ option.label }}</span>
-                                        </label>
-                                    </ng-container>
-                                </div>
-                            </div>
+  constructor(
+    private fb: FormBuilder,
+    private paymentConfigService: PaymentConfigService
+  ) {
+    this.paymentForm = this.fb.group({
+      merchantId: [''],
+      paymentMode: [''],
+      dynamicFields: this.fb.group({}) // Will hold all dynamic fields
+    });
+  }
 
-                            <!-- Select Type Field -->
-                            <div *ngIf="field.type === 'select'">
-                                <h4>{{ field.label }}</h4>
-                                <select [formControlName]="field.id" class="form-control">
-                                    <option value="">-- Select {{ field.label }} --</option>
-                                    <option *ngFor="let option of field.options" [value]="option.value">
-                                        {{ option.label }}
-                                    </option>
-                                </select>
-                            </div>
+  ngOnInit(): void {
+    this.loadMerchants();
+    this.loadPaymentModes();
 
-                            <!-- Radio Type Field -->
-                            <div *ngIf="field.type === 'radio'">
-                                <h4>{{ field.label }}</h4>
-                                <div class="checkbox-group">
-                                    <label *ngFor="let option of field.options" class="checkbox-label">
-                                        <input type="radio" [formControlName]="field.id" [value]="option.value" />
-                                        <span>{{ option.label }}</span>
-                                    </label>
-                                </div>
-                            </div>
+    // Listen to payment mode changes
+    this.paymentForm.get('paymentMode')?.valueChanges.subscribe((paymentMode) => {
+      if (paymentMode) {
+        this.loadPaymentModeConfig(paymentMode);
+      } else {
+        this.currentPaymentConfig = null;
+        this.resetDynamicForm();
+      }
+    });
+  }
 
-                            <!-- Text Type Field -->
-                            <div *ngIf="field.type === 'text'">
-                                <h4>{{ field.label }}</h4>
-                                <input type="text" [formControlName]="field.id" class="form-control"
-                                    [placeholder]="'Enter ' + field.label" />
-                            </div>
+  // Load merchants from API
+  loadMerchants(): void {
+    this.paymentConfigService.getMerchants().subscribe({
+      next: (merchants) => {
+        this.merchants = merchants;
+      },
+      error: (error) => {
+        console.error('Error loading merchants:', error);
+        this.merchants = [
+          { id: 'M001', name: 'Merchant 001' },
+          { id: 'M002', name: 'Merchant 002' },
+          { id: 'M003', name: 'Merchant 003' },
+          { id: 'M004', name: 'Merchant 004' },
+          { id: 'M005', name: 'Merchant 005' }
+        ];
+      }
+    });
+  }
 
-                        </div>
-                    </div>
-                </div>
+  // Load available payment modes from API
+  loadPaymentModes(): void {
+    this.paymentConfigService.getPaymentModes().subscribe({
+      next: (modes) => {
+        this.paymentModes = modes;
+      },
+      error: (error) => {
+        console.error('Error loading payment modes:', error);
+        this.paymentModes = ['Card', 'UPI', 'Net Banking', 'EMI', 'FT', 'Wallet'];
+      }
+    });
+  }
 
-                <!-- Action Buttons - Only show when payment mode is selected -->
-                <div *ngIf="isPaymentModeSelected" class="action-buttons">
-                    <button type="button" class="btn btn-primary" (click)="onSave()">
-                        <span class="icon">💾</span> Save Configuration
-                    </button>
-                    <button type="button" class="btn btn-secondary" (click)="onReset()">
-                        <span class="icon">🔄</span> Reset Form
-                    </button>
-                </div>
-            </div>
+  // Load configuration for selected payment mode from API
+  loadPaymentModeConfig(paymentMode: string): void {
+    this.paymentConfigService.getPaymentModeConfig(paymentMode).subscribe({
+      next: (config) => {
+        this.currentPaymentConfig = config;
+        this.buildDynamicForm(config);
+
+        const merchantId = this.paymentForm.get('merchantId')?.value;
+        if (merchantId) {
+          this.loadSavedConfiguration(merchantId, paymentMode);
+        }
+      },
+      error: (error) => {
+        console.error('Error loading payment mode config:', error);
+        const config = this.getMockPaymentModeConfig(paymentMode);
+        this.currentPaymentConfig = config;
+        this.buildDynamicForm(config);
+      }
+    });
+  }
+
+  // Load previously saved configuration
+  loadSavedConfiguration(merchantId: string, paymentMode: string): void {
+    this.paymentConfigService.getSavedConfiguration(merchantId, paymentMode).subscribe({
+      next: (savedConfig) => {
+        console.log('Loaded saved configuration:', savedConfig);
+        if (savedConfig && savedConfig.config) {
+          this.paymentForm.patchValue({
+            dynamicFields: savedConfig.config
+          });
+          console.log('✅ Loaded saved configuration');
+        }
+      },
+      error: (error) => {
+        console.log('No saved configuration found or error:', error);
+      }
+    });
+  }
+
+  // Build dynamic form based on configuration
+  buildDynamicForm(config: PaymentModeConfig): void {
+    this.resetDynamicForm();
+    const dynamicFieldsGroup = this.paymentForm.get('dynamicFields') as FormGroup;
+
+    config.sections.forEach(section => {
+      section.fields.forEach(field => {
+        if (field.type === 'checkbox') {
+          const formArray = this.fb.array([]);
+          dynamicFieldsGroup.addControl(field.id, formArray);
+
+          // ✅ Preselect mandatory options
+          if (field.options) {
+            field.options.forEach(option => {
+              if (option.isMandatory) {
+                formArray.push(new FormControl(option.value));
+              }
+            });
+          }
+
+          if (field.options && field.options.length > 5) {
+            dynamicFieldsGroup.addControl(`${field.id}_selectAll`, this.fb.control(false));
+
+            dynamicFieldsGroup.get(`${field.id}_selectAll`)?.valueChanges.subscribe(selectAll => {
+              this.toggleAllOptions(field.id, selectAll, field.options || []);
+            });
+          }
+        } else if (field.type === 'select' || field.type === 'radio') {
+          dynamicFieldsGroup.addControl(field.id, this.fb.control(''));
+        } else if (field.type === 'text') {
+          dynamicFieldsGroup.addControl(field.id, this.fb.control(''));
+        }
+      });
+    });
+  }
+
+  // Reset dynamic form
+  resetDynamicForm(): void {
+    const dynamicFieldsGroup = this.paymentForm.get('dynamicFields') as FormGroup;
+    Object.keys(dynamicFieldsGroup.controls).forEach(key => {
+      dynamicFieldsGroup.removeControl(key);
+    });
+  }
+
+  // Get FormArray for a field
+  getFieldArray(fieldId: string): FormArray {
+    const dynamicFields = this.paymentForm.get('dynamicFields') as FormGroup;
+    return dynamicFields.get(fieldId) as FormArray;
+  }
+
+  // Check if an option is selected in a checkbox group
+  isOptionSelected(fieldId: string, optionValue: string): boolean {
+    const fieldArray = this.getFieldArray(fieldId);
+    return fieldArray.controls.some(ctrl => ctrl.value === optionValue);
+  }
+
+  // Handle checkbox change
+  onCheckboxChange(fieldId: string, optionValue: string, event: any): void {
+    const fieldArray = this.getFieldArray(fieldId);
+
+    if (event.target.checked) {
+      fieldArray.push(new FormControl(optionValue));
+    } else {
+      const index = fieldArray.controls.findIndex(ctrl => ctrl.value === optionValue);
+      if (index !== -1) {
+        fieldArray.removeAt(index);
+      }
+
+      const dynamicFields = this.paymentForm.get('dynamicFields') as FormGroup;
+      const selectAllControl = dynamicFields.get(`${fieldId}_selectAll`);
+      if (selectAllControl) {
+        selectAllControl.setValue(false, { emitEvent: false });
+      }
+    }
+  }
+
+  // Toggle all options for a checkbox field
+  toggleAllOptions(fieldId: string, selectAll: boolean, options: FieldOption[]): void {
+    const fieldArray = this.getFieldArray(fieldId);
+    fieldArray.clear();
+
+    if (selectAll) {
+      options.forEach(option => {
+        fieldArray.push(new FormControl(option.value));
+      });
+    }
+  }
+
+  // Get frequent options (for special display)
+  getFrequentOptions(field: ConfigField): FieldOption[] {
+    return field.options?.filter(opt => opt.isFrequent) || [];
+  }
+
+  // Get other options (non-frequent)
+  getOtherOptions(field: ConfigField): FieldOption[] {
+    return field.options?.filter(opt => !opt.isFrequent) || [];
+  }
+
+  // Check if field has select all option
+  hasSelectAllOption(field: ConfigField): boolean {
+    const dynamicFields = this.paymentForm.get('dynamicFields') as FormGroup;
+    return dynamicFields.get(`${field.id}_selectAll`) !== null;
+  }
+
+  // Get grid column class based on configuration
+  getGridColumnClass(field: ConfigField): string {
+    const columns = field.gridColumns || 5;
+    return `grid-cols-${columns}`;
+  }
+
+  // Check if payment mode is selected
+  get isPaymentModeSelected(): boolean {
+    return !!this.paymentForm.get('paymentMode')?.value;
+  }
+
+  // Save configuration
+  onSave(): void {
+    const merchantId = this.paymentForm.get('merchantId')?.value;
+    const paymentMode = this.paymentForm.get('paymentMode')?.value;
+
+    console.log('💾 Saving configuration for Merchant ID:', merchantId, 'Payment Mode:', paymentMode);
+    if (!merchantId || !paymentMode) {
+      alert('Please select both Merchant ID and Payment Mode');
+      return;
+    }
+
+    const configuration = {
+      merchantId,
+      paymentMode,
+      config: this.paymentForm.get('dynamicFields')?.value
+    };
+
+    console.log('💾 Saving Configuration:', configuration);
+    localStorage.setItem(`${merchantId}_${paymentMode}`, JSON.stringify(configuration));
+    alert('Configuration saved successfully!');
+
+    // this.paymentConfigService.saveConfiguration(configuration).subscribe({
+    //   next: (response) => {
+    //     if (response.success) {
+    //       alert(response.message || 'Configuration saved successfully!');
+    //       console.log('Configuration ID:', response.configurationId);
+    //     } else {
+    //       alert('Error: ' + response.message);
+    //     }
+    //   },
+    //   error: (error) => {
+    //     console.error('Error saving configuration:', error);
+    //     alert('Error saving configuration. Please try again.');
+    //   }
+    // });
+  }
+
+  // Reset form
+  onReset(): void {
+    if (!this.currentPaymentConfig) {
+      return;
+    }
+
+    this.buildDynamicForm(this.currentPaymentConfig);
+    console.log('🔄 Form has been reset');
+  }
+
+  // Mock configuration data (Replace with actual API call)
+  getMockPaymentModeConfig(paymentMode: string): PaymentModeConfig {
+    const configs: { [key: string]: PaymentModeConfig } = {
+      'Card': {
+        paymentMode: 'Card',
+        sections: [
+          {
+            id: 'card_config',
+            title: 'Card Configuration',
+            fields: [
+              {
+                id: 'cardSubPaymentModes',
+                label: 'Select Sub Payment Mode',
+                type: 'checkbox',
+                options: [
+                  { value: 'debit', label: 'Debit Card', isMandatory: true },
+                  { value: 'credit', label: 'Credit Card' },
+                  { value: 'prepaid', label: 'Prepaid Card', }
+                ]
+              },
+              {
+                id: 'cardRegions',
+                label: 'Select Region',
+                type: 'checkbox',
+                options: [
+                  { value: 'domestic', label: 'Domestic', isMandatory: true },
+                  { value: 'international', label: 'International' }
+                ]
+              },
+              {
+                id: 'cardProductTypes',
+                label: 'Select Product Type',
+                type: 'checkbox',
+                options: [
+                  { value: 'standard', label: 'Standard' },
+                  { value: 'premium', label: 'Premium' },
+                  { value: 'corporate', label: 'Corporate' },
+                  { value: 'super_premium', label: 'Super Premium' }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      'UPI': {
+        paymentMode: 'UPI',
+        sections: [
+          {
+            id: 'upi_config',
+            title: 'UPI Configuration',
+            fields: [
+              {
+                id: 'upiSubModes',
+                label: 'Select Sub Payment Mode',
+                type: 'checkbox',
+                options: [
+                  { value: 'savings', label: 'Savings', isMandatory: true },
+                  { value: 'credit', label: 'Credit' }
+                ]
+              },
+              {
+                id: 'upiTypes',
+                label: 'Select Type',
+                type: 'checkbox',
+                options: [
+                  { value: 'collect', label: 'Collect' },
+                  { value: 'qr', label: 'QR' },
+                  { value: 'intent', label: 'Intent' }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      'Net Banking': {
+        paymentMode: 'Net Banking',
+        sections: [
+          {
+            id: 'netbanking_config',
+            title: 'Net Banking Configuration',
+            fields: [
+              {
+                id: 'selectedBanks',
+                label: 'Select Banks',
+                type: 'checkbox',
+                displayType: 'grid',
+                gridColumns: 5,
+                options: [
+                  { value: 'B001', label: 'State Bank of India', isFrequent: true },
+                  { value: 'B002', label: 'HDFC Bank', isFrequent: true },
+                  { value: 'B003', label: 'ICICI Bank', isFrequent: true },
+                  { value: 'B004', label: 'Axis Bank', isFrequent: true },
+                  { value: 'B005', label: 'Kotak Mahindra Bank', isFrequent: true },
+                  { value: 'B006', label: 'Punjab National Bank', isFrequent: true },
+                  { value: 'B007', label: 'Bank of Baroda', isFrequent: true },
+                  { value: 'B008', label: 'Canara Bank', isFrequent: true },
+                  { value: 'B009', label: 'IDBI Bank', isFrequent: true },
+                  { value: 'B010', label: 'Yes Bank', isFrequent: true },
+                  { value: 'B011', label: 'IndusInd Bank', isFrequent: false },
+                  { value: 'B012', label: 'Federal Bank', isFrequent: false },
+                  { value: 'B013', label: 'IDFC First Bank', isFrequent: false },
+                  { value: 'B014', label: 'RBL Bank', isFrequent: false },
+                  { value: 'B014', label: 'RBL Bank 1', isFrequent: false },
+                  { value: 'B014', label: 'RBL Bank 2', isFrequent: false },
+                  { value: 'B014', label: 'RBL Bank 3', isFrequent: false },
+                  { value: 'B015', label: 'Bank of India', isFrequent: false }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      'EMI': {
+        paymentMode: 'EMI',
+        sections: [
+          {
+            id: 'emi_config',
+            title: 'EMI Configuration',
+            fields: [
+              {
+                id: 'emiPaymentModes',
+                label: 'Select Payment Mode',
+                type: 'checkbox',
+                options: [
+                  { value: 'debit', label: 'Debit Card' },
+                  { value: 'credit', label: 'Credit Card' }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      'FT': {
+        paymentMode: 'FT',
+        sections: [
+          {
+            id: 'ft_config',
+            title: 'FT Configuration',
+            fields: [
+              {
+                id: 'ft_info',
+                label: '',
+                type: 'info',
+                infoText: 'No additional configuration required for FT payment mode.'
+              }
+            ]
+          }
+        ]
+      },
+      'Wallet': {
+        paymentMode: 'Wallet',
+        sections: [
+          {
+            id: 'wallet_config',
+            title: 'Wallet Configuration',
+            fields: [
+              {
+                id: 'walletProviders',
+                label: 'Select Wallet Providers',
+                type: 'checkbox',
+                options: [
+                  { value: 'paytm', label: 'Paytm' },
+                  { value: 'phonepe', label: 'PhonePe' },
+                  { value: 'gpay', label: 'Google Pay' },
+                  { value: 'amazonpay', label: 'Amazon Pay' },
+                  { value: 'mobikwik', label: 'Mobikwik' }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    };
+
+    return configs[paymentMode] || { paymentMode, sections: [] };
+  }
+}
