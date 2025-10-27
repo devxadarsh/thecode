@@ -1,17 +1,25 @@
-// edit-payment-mode.component.ts
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, FormArray, FormControl } from '@angular/forms';
-import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule } from '@angular/forms';
-import { PaymentConfigService } from '../payment-mode/payment-config.service';
-import { distinctUntilChanged } from 'rxjs';
+// import { Injectable } from '@angular/core';
 
-interface Merchant {
+// @Injectable({
+//   providedIn: 'root'
+// })
+// export class PaymentConfigService {
+
+//   constructor() { }
+// }
+
+
+// payment-config.service.ts
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+export interface Merchant {
   id: string;
   name: string;
 }
 
-interface ConfigField {
+export interface ConfigField {
   id: string;
   label: string;
   type: 'checkbox' | 'radio' | 'select' | 'text' | 'info';
@@ -22,371 +30,392 @@ interface ConfigField {
   infoText?: string;
 }
 
-interface FieldOption {
+export interface FieldOption {
   value: string;
   label: string;
   isFrequent?: boolean;
   isMandatory?: boolean;
 }
 
-interface PaymentModeConfig {
+export interface PaymentModeConfig {
   paymentMode: string;
   sections: ConfigSection[];
 }
 
-interface ConfigSection {
+export interface ConfigSection {
   id: string;
   title: string;
   fields: ConfigField[];
 }
 
-@Component({
-  selector: 'app-edit-payment-mode',
-  standalone: true,
-  imports: [ReactiveFormsModule, CommonModule],
-  templateUrl: './edit-payment-mode.component.html',
-  styleUrls: ['./edit-payment-mode.component.scss']
+export interface SaveConfigurationRequest {
+  merchantId: string;
+  paymentMode: string;
+  config: any;
+}
+
+export interface SaveConfigurationResponse {
+  success: boolean;
+  message: string;
+  configurationId?: string;
+}
+
+@Injectable({
+  providedIn: 'root'
 })
-export class EditPaymentModeComponent implements OnInit {
-  paymentForm: FormGroup;
-  merchants: Merchant[] = [];
-  paymentModes: string[] = [];
-  currentPaymentConfig: PaymentModeConfig | null = null;
-  isEditMode: boolean = false;
-  isLoading: boolean = false;
-  configurationId: string | null = null;
-  hasLoadedConfig: boolean = false;
+export class PaymentConfigService {
+  private apiBaseUrl = '/api'; // Change this to your actual API base URL
 
-  constructor(
-    private fb: FormBuilder,
-    private paymentConfigService: PaymentConfigService
-  ) {
-    this.paymentForm = this.fb.group({
-      merchantId: [{ value: '', disabled: false }],
-      paymentMode: [{ value: '', disabled: false }],
-      dynamicFields: this.fb.group({})
-    });
+  constructor(private http: HttpClient) { }
+
+  /**
+   * Get list of all merchants
+   */
+  getMerchants(): Observable<Merchant[]> {
+    return this.http.get<Merchant[]>(`${this.apiBaseUrl}/merchants`);
   }
 
-  ngOnInit(): void {
-    this.loadMerchants();
-    this.loadPaymentModes();
-
-    // this.paymentForm.setValue({
-    //   merchantId: 'M001',
-    //   paymentMode: 'Card',
-    //   dynamicFields: {}
-    // });
-
-    // Listen only for genuine user-triggered changes
-    this.paymentForm.get('paymentMode')?.valueChanges
-      .pipe(distinctUntilChanged())
-      .subscribe(paymentMode => {
-        if (paymentMode) {
-          this.onViewConfiguration();
-        }
-      });
-
-    // this.onViewConfiguration();
-
+  /**
+   * Get list of available payment modes
+   */
+  getPaymentModes(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiBaseUrl}/payment-modes`);
   }
 
-  loadMerchants(): void {
-    this.paymentConfigService.getMerchants().subscribe({
-      next: (merchants) => {
-        this.merchants = merchants;
-      },
-      error: (error) => {
-        console.error('Error loading merchants:', error);
-        this.merchants = [
-          { id: 'M001', name: 'Merchant 001' },
-          { id: 'M002', name: 'Merchant 002' },
-          { id: 'M003', name: 'Merchant 003' }
-        ];
-      }
-    });
-  }
-
-  loadPaymentModes(): void {
-    this.paymentConfigService.getPaymentModes().subscribe({
-      next: (modes) => {
-        this.paymentModes = modes;
-      },
-      error: (error) => {
-        console.error('Error loading payment modes:', error);
-        this.paymentModes = ['Card', 'UPI', 'Net Banking', 'EMI', 'FT'];
-      }
-    });
-  }
-
-  // Load configuration when user clicks "View Configuration"
-  onViewConfiguration(): void {
-    const merchantId = this.paymentForm.get('merchantId')?.value;
-    const paymentMode = this.paymentForm.get('paymentMode')?.value;
-
-    if (!merchantId || !paymentMode) {
-      alert('Please select both Merchant ID and Payment Mode');
-      return;
-    }
-
-    this.isLoading = true;
-    this.hasLoadedConfig = false;
-
-    // First get the payment mode config structure
-    this.paymentConfigService.getPaymentModeConfigEdit(paymentMode).subscribe({
-      next: (config) => {
-        console.log('Loaded payment mode config structure:', config);
-        this.currentPaymentConfig = config;
-        this.buildDynamicForm(config);
-
-        // Then load saved configuration
-        this.loadSavedConfiguration(merchantId, paymentMode);
-      },
-      error: (error) => {
-        console.error('Error loading payment mode config:', error);
-        this.isLoading = false;
-        alert('Error loading payment mode configuration');
-
-        // const config = this.getMockPaymentModeConfig(paymentMode);
-        // this.currentPaymentConfig = config;
-        // this.buildDynamicForm(config);
-      }
-    });
-  }
-
-  loadSavedConfiguration(merchantId: string, paymentMode: string): void {
-    this.paymentConfigService.getSavedConfiguration(merchantId, paymentMode).subscribe({
-      next: (savedConfig) => {
-        if (savedConfig && savedConfig.config) {
-          this.configurationId = savedConfig.configurationId;
-
-          // Patch the form with saved values
-          const dynamicFields = this.paymentForm.get('dynamicFields') as FormGroup;
-          Object.keys(savedConfig.config).forEach(key => {
-            const control = dynamicFields.get(key);
-            if (control) {
-              if (control instanceof FormArray) {
-                // For FormArray (checkboxes)
-                control.clear();
-                const values = savedConfig.config[key];
-                console.log('Restoring values for', key, ':', values);
-                if (Array.isArray(values)) {
-                  values.forEach(value => {
-                    control.push(new FormControl(value));
-                  });
-                }
-              } else {
-                // For regular controls
-                control.setValue(savedConfig.config[key]);
+  /**
+   * Get configuration schema for a specific payment mode
+   * This returns the dynamic structure (sections, fields, options) for the payment mode
+   */
+  getPaymentModeConfigEdit(paymentMode: string): Observable<PaymentModeConfig> {
+    // return this.http.get<PaymentModeConfig>(
+    //   `${this.apiBaseUrl}/payment-mode-config/${paymentMode}`
+    // );
+    const configs: { [key: string]: PaymentModeConfig } = {
+      'Card': {
+        paymentMode: 'Card',
+        sections: [
+          {
+            id: 'card_config',
+            title: 'Card Configuration',
+            fields: [
+              {
+                id: 'cardSubPaymentModes',
+                label: 'Select Sub Payment Mode',
+                type: 'checkbox',
+                options: [
+                  { value: 'debit', label: 'Debit Card' },
+                  { value: 'credit', label: 'Credit Card' },
+                  { value: 'prepaid', label: 'Prepaid Card' }
+                ]
+              },
+              {
+                id: 'cardRegions',
+                label: 'Select Region',
+                type: 'checkbox',
+                options: [
+                  { value: 'domestic', label: 'Domestic' },
+                  { value: 'international', label: 'International' }
+                ]
+              },
+              {
+                id: 'cardProductTypes',
+                label: 'Select Product Type',
+                type: 'checkbox',
+                options: [
+                  { value: 'standard', label: 'Standard' },
+                  { value: 'premium', label: 'Premium' },
+                  { value: 'corporate', label: 'Corporate' },
+                  { value: 'super_premium', label: 'Super Premium' }
+                ]
               }
-            }
-          });
-
-          this.hasLoadedConfig = true;
-          this.isLoading = false;
-
-          // Disable form initially (read-only mode)
-          this.disableAllDynamicFields();
-
-          // Disable merchant and payment mode selection
-          this.paymentForm.get('merchantId')?.disable();
-          this.paymentForm.get('paymentMode')?.disable();
-
-          console.log('✅ Configuration loaded successfully');
-        }
-      },
-      error: (error) => {
-        console.error('Error loading saved configuration:', error);
-        this.isLoading = false;
-        alert('No saved configuration found for this merchant and payment mode');
-      }
-    });
-  }
-
-  buildDynamicForm(config: PaymentModeConfig): void {
-    this.resetDynamicForm();
-    const dynamicFieldsGroup = this.paymentForm.get('dynamicFields') as FormGroup;
-
-    config.sections.forEach(section => {
-      section.fields.forEach(field => {
-        if (field.type === 'checkbox') {
-          dynamicFieldsGroup.addControl(field.id, this.fb.array([]));
-
-          if (field.options && field.options.length > 5) {
-            dynamicFieldsGroup.addControl(`${field.id}_selectAll`, this.fb.control(false));
-
-            dynamicFieldsGroup.get(`${field.id}_selectAll`)?.valueChanges.subscribe(selectAll => {
-              if (this.isEditMode) {
-                this.toggleAllOptions(field.id, selectAll, field.options || []);
-              }
-            });
+            ]
           }
-        } else if (field.type === 'select' || field.type === 'radio') {
-          dynamicFieldsGroup.addControl(field.id, this.fb.control(''));
-        } else if (field.type === 'text') {
-          dynamicFieldsGroup.addControl(field.id, this.fb.control(''));
-        }
-      });
-    });
-  }
-
-  resetDynamicForm(): void {
-    const dynamicFieldsGroup = this.paymentForm.get('dynamicFields') as FormGroup;
-    Object.keys(dynamicFieldsGroup.controls).forEach(key => {
-      dynamicFieldsGroup.removeControl(key);
-    });
-  }
-
-  // Enable edit mode
-  onEdit(): void {
-    this.isEditMode = true;
-    this.enableAllDynamicFields();
-  }
-
-  // Cancel edit mode
-  onCancel(): void {
-    this.isEditMode = false;
-    this.disableAllDynamicFields();
-
-    // Reload the saved configuration to reset changes
-    const merchantId = this.paymentForm.get('merchantId')?.value;
-    const paymentMode = this.paymentForm.get('paymentMode')?.value;
-    if (merchantId && paymentMode) {
-      this.loadSavedConfiguration(merchantId, paymentMode);
-    }
-  }
-
-  // Update configuration
-  onUpdate(): void {
-    const merchantId = this.paymentForm.get('merchantId')?.value;
-    const paymentMode = this.paymentForm.get('paymentMode')?.value;
-
-    if (!merchantId || !paymentMode) {
-      alert('Invalid merchant or payment mode');
-      return;
-    }
-
-    const configuration = {
-      merchantId,
-      paymentMode,
-      config: this.paymentForm.get('dynamicFields')?.value
+        ]
+      },
+      'UPI': {
+        paymentMode: 'UPI',
+        sections: [
+          {
+            id: 'upi_config',
+            title: 'UPI Configuration',
+            fields: [
+              {
+                id: 'upiSubModes',
+                label: 'Select Sub Payment Mode',
+                type: 'checkbox',
+                options: [
+                  { value: 'savings', label: 'Savings' },
+                  { value: 'credit', label: 'Credit' }
+                ]
+              },
+              {
+                id: 'upiTypes',
+                label: 'Select Type',
+                type: 'checkbox',
+                options: [
+                  { value: 'collect', label: 'Collect' },
+                  { value: 'qr', label: 'QR' },
+                  { value: 'intent', label: 'Intent' }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      'Net Banking': {
+        paymentMode: 'Net Banking',
+        sections: [
+          {
+            id: 'netbanking_config',
+            title: 'Net Banking Configuration',
+            fields: [
+              {
+                id: 'selectedBanks',
+                label: 'Select Banks',
+                type: 'checkbox',
+                displayType: 'grid',
+                gridColumns: 5,
+                options: [
+                  { value: 'B001', label: 'State Bank of India', isFrequent: true },
+                  { value: 'B002', label: 'HDFC Bank', isFrequent: true },
+                  { value: 'B003', label: 'ICICI Bank', isFrequent: true },
+                  { value: 'B004', label: 'Axis Bank', isFrequent: true },
+                  { value: 'B005', label: 'Kotak Mahindra Bank', isFrequent: true },
+                  { value: 'B006', label: 'Punjab National Bank', isFrequent: true },
+                  { value: 'B007', label: 'Bank of Baroda', isFrequent: true },
+                  { value: 'B008', label: 'Canara Bank', isFrequent: true },
+                  { value: 'B009', label: 'IDBI Bank', isFrequent: true },
+                  { value: 'B010', label: 'Yes Bank', isFrequent: true },
+                  { value: 'B011', label: 'IndusInd Bank', isFrequent: false },
+                  { value: 'B012', label: 'Federal Bank', isFrequent: false },
+                  { value: 'B013', label: 'IDFC First Bank', isFrequent: false },
+                  { value: 'B014', label: 'RBL Bank', isFrequent: false },
+                  { value: 'B015', label: 'Bank of India', isFrequent: false }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      'EMI': {
+        paymentMode: 'EMI',
+        sections: [
+          {
+            id: 'emi_config',
+            title: 'EMI Configuration',
+            fields: [
+              {
+                id: 'emiPaymentModes',
+                label: 'Select Payment Mode',
+                type: 'checkbox',
+                options: [
+                  { value: 'debit', label: 'Debit Card' },
+                  { value: 'credit', label: 'Credit Card' }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      'FT': {
+        paymentMode: 'FT',
+        sections: [
+          {
+            id: 'ft_config',
+            title: 'FT Configuration',
+            fields: [
+              {
+                id: 'ft_info',
+                label: '',
+                type: 'info',
+                infoText: 'No additional configuration required for FT payment mode.'
+              }
+            ]
+          }
+        ]
+      },
+      'Wallet': {
+        paymentMode: 'Wallet',
+        sections: [
+          {
+            id: 'wallet_config',
+            title: 'Wallet Configuration',
+            fields: [
+              {
+                id: 'walletProviders',
+                label: 'Select Wallet Providers',
+                type: 'checkbox',
+                options: [
+                  { value: 'paytm', label: 'Paytm' },
+                  { value: 'phonepe', label: 'PhonePe' },
+                  { value: 'gpay', label: 'Google Pay' },
+                  { value: 'amazonpay', label: 'Amazon Pay' },
+                  { value: 'mobikwik', label: 'Mobikwik' }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     };
 
-    console.log('📝 Updating Configuration:', configuration);
-    localStorage.setItem(`${merchantId}_${paymentMode}`, JSON.stringify(configuration));
-    alert('Configuration updated successfully!');
-    this.isEditMode = false;
-    this.disableAllDynamicFields();
-
-
-    // if (this.configurationId) {
-    //   this.paymentConfigService.updateConfiguration(this.configurationId, configuration).subscribe({
-    //     next: (response) => {
-    //       if (response.success) {
-    //         alert(response.message || 'Configuration updated successfully!');
-    //         this.isEditMode = false;
-    //         this.disableAllDynamicFields();
-    //       } else {
-    //         alert('Error: ' + response.message);
-    //       }
-    //     },
-    //     error: (error) => {
-    //       console.error('Error updating configuration:', error);
-    //       alert('Error updating configuration. Please try again.');
-    //     }
-    //   });
-    // } else {
-    //   alert('No configuration ID found');
-    // }
-  }
-
-  // Disable all dynamic fields (read-only mode)
-  disableAllDynamicFields(): void {
-    const dynamicFieldsGroup = this.paymentForm.get('dynamicFields') as FormGroup;
-    Object.keys(dynamicFieldsGroup.controls).forEach(key => {
-      dynamicFieldsGroup.get(key)?.disable();
+    // return configs[paymentMode] || { paymentMode, sections: [] };
+    return new Observable<PaymentModeConfig>(observer => {
+      observer.next(configs[paymentMode] || { paymentMode, sections: [] });
+      observer.complete();
     });
   }
 
-  // Enable all dynamic fields (edit mode)
-  enableAllDynamicFields(): void {
-    const dynamicFieldsGroup = this.paymentForm.get('dynamicFields') as FormGroup;
-    Object.keys(dynamicFieldsGroup.controls).forEach(key => {
-      dynamicFieldsGroup.get(key)?.enable();
+  /**
+   * Get configuration schema for a specific payment mode
+   * This returns the dynamic structure (sections, fields, options) for the payment mode
+   */
+  getPaymentModeConfig(paymentMode: string): Observable<PaymentModeConfig> {
+    return this.http.get<PaymentModeConfig>(
+      `${this.apiBaseUrl}/payment-mode-config/${paymentMode}`
+    );
+    const mockResponse: PaymentModeConfig = {
+      paymentMode: 'Card',
+      sections: [
+        {
+          id: 'card_config',
+          title: 'Card Configuration',
+          fields: [
+            {
+              id: 'cardSubPaymentModes',
+              label: 'Select Sub Payment Mode',
+              type: 'checkbox',
+              options: [
+                { value: 'debit', label: 'Debit Card' },
+                { value: 'credit', label: 'Credit Card' },
+                { value: 'prepaid', label: 'Prepaid Card' }
+              ]
+            },
+            {
+              id: 'cardRegions',
+              label: 'Select Region',
+              type: 'checkbox',
+              options: [
+                { value: 'domestic', label: 'Domestic' },
+                { value: 'international', label: 'International' }
+              ]
+            },
+            {
+              id: 'cardProductTypes',
+              label: 'Select Product Type',
+              type: 'checkbox',
+              options: [
+                { value: 'standard', label: 'Standard' },
+                { value: 'premium', label: 'Premium' },
+                { value: 'corporate', label: 'Corporate' },
+                { value: 'super_premium', label: 'Super Premium' }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    return new Observable<PaymentModeConfig>(observer => {
+      observer.next(mockResponse);
+      observer.complete();
     });
   }
 
-  getFieldArray(fieldId: string): FormArray {
-    const dynamicFields = this.paymentForm.get('dynamicFields') as FormGroup;
-    return dynamicFields.get(fieldId) as FormArray;
+  /**
+   * Get saved configuration for a specific merchant and payment mode
+   * This returns previously saved values for the merchant
+   */
+  getSavedConfiguration(merchantId: string, paymentMode: string): Observable<any> {
+    // return this.http.get(
+    //   `${this.apiBaseUrl}/payment-configuration/${merchantId}/${paymentMode}`
+    // );
+    const mockResponse = localStorage.getItem(`${merchantId}_${paymentMode}`) ? JSON.parse(localStorage.getItem(`${merchantId}_${paymentMode}`)!) : {};
+    return new Observable<any>(observer => {
+      observer.next(mockResponse);
+      observer.complete();
+    });
+
   }
 
-  isOptionSelected(fieldId: string, optionValue: string): boolean {
-    const fieldArray = this.getFieldArray(fieldId);
-    return fieldArray.controls.some(ctrl => ctrl.value === optionValue);
+  /**
+   * Save payment mode configuration for a merchant
+   */
+  saveConfiguration(request: SaveConfigurationRequest): Observable<SaveConfigurationResponse> {
+    return this.http.post<SaveConfigurationResponse>(
+      `${this.apiBaseUrl}/payment-configuration`,
+      request
+    );
   }
 
-  onCheckboxChange(fieldId: string, optionValue: string, event: any): void {
-    if (!this.isEditMode) return;
-
-    const fieldArray = this.getFieldArray(fieldId);
-
-    if (event.target.checked) {
-      fieldArray.push(new FormControl(optionValue));
-    } else {
-      const index = fieldArray.controls.findIndex(ctrl => ctrl.value === optionValue);
-      if (index !== -1) {
-        fieldArray.removeAt(index);
-      }
-
-      const dynamicFields = this.paymentForm.get('dynamicFields') as FormGroup;
-      const selectAllControl = dynamicFields.get(`${fieldId}_selectAll`);
-      if (selectAllControl) {
-        selectAllControl.setValue(false, { emitEvent: false });
-      }
-    }
+  /**
+   * Update existing payment mode configuration
+   */
+  updateConfiguration(
+    configurationId: string,
+    request: SaveConfigurationRequest
+  ): Observable<SaveConfigurationResponse> {
+    return this.http.put<SaveConfigurationResponse>(
+      `${this.apiBaseUrl}/payment-configuration/${configurationId}`,
+      request
+    );
   }
 
-  toggleAllOptions(fieldId: string, selectAll: boolean, options: FieldOption[]): void {
-    const fieldArray = this.getFieldArray(fieldId);
-    fieldArray.clear();
-
-    if (selectAll) {
-      options.forEach(option => {
-        fieldArray.push(new FormControl(option.value));
-      });
-    }
-  }
-
-  getFrequentOptions(field: ConfigField): FieldOption[] {
-    return field.options?.filter(opt => opt.isFrequent) || [];
-  }
-
-  getOtherOptions(field: ConfigField): FieldOption[] {
-    return field.options?.filter(opt => !opt.isFrequent) || [];
-  }
-
-  hasSelectAllOption(field: ConfigField): boolean {
-    const dynamicFields = this.paymentForm.get('dynamicFields') as FormGroup;
-    return dynamicFields.get(`${field.id}_selectAll`) !== null;
-  }
-
-  get canViewConfiguration(): boolean {
-    return !!this.paymentForm.get('merchantId')?.value &&
-      !!this.paymentForm.get('paymentMode')?.value &&
-      !this.hasLoadedConfig;
-  }
-
-
-
-  // Reset to initial state
-  onResetForm(): void {
-    this.paymentForm.reset();
-    this.currentPaymentConfig = null;
-    this.isEditMode = false;
-    this.hasLoadedConfig = false;
-    this.configurationId = null;
-    this.paymentForm.get('merchantId')?.enable();
-    this.paymentForm.get('paymentMode')?.enable();
+  /**
+   * Delete payment mode configuration
+   */
+  deleteConfiguration(configurationId: string): Observable<SaveConfigurationResponse> {
+    return this.http.delete<SaveConfigurationResponse>(
+      `${this.apiBaseUrl}/payment-configuration/${configurationId}`
+    );
   }
 }
+
+/**
+ * API Response Examples:
+ * 
+ * 1. GET /api/merchants
+ * [
+ *   { "id": "M001", "name": "Merchant 001" },
+ *   { "id": "M002", "name": "Merchant 002" }
+ * ]
+ * 
+ * 2. GET /api/payment-modes
+ * ["Card", "UPI", "Net Banking", "EMI", "FT", "Wallet"]
+ * 
+ * 3. GET /api/payment-mode-config/Card
+ * {
+ *   "paymentMode": "Card",
+ *   "sections": [
+ *     {
+ *       "id": "card_config",
+ *       "title": "Card Configuration",
+ *       "fields": [
+ *         {
+ *           "id": "cardSubPaymentModes",
+ *           "label": "Select Sub Payment Mode",
+ *           "type": "checkbox",
+ *           "options": [
+ *             { "value": "debit", "label": "Debit Card" },
+ *             { "value": "credit", "label": "Credit Card" }
+ *           ]
+ *         }
+ *       ]
+ *     }
+ *   ]
+ * }
+ * 
+ * 4. POST /api/payment-configuration
+ * Request: {
+ *   "merchantId": "M001",
+ *   "paymentMode": "Card",
+ *   "config": {
+ *     "cardSubPaymentModes": ["debit", "credit"],
+ *     "cardRegions": ["domestic"]
+ *   }
+ * }
+ * Response: {
+ *   "success": true,
+ *   "message": "Configuration saved successfully",
+ *   "configurationId": "CONFIG_12345"
+ * }
+ */
