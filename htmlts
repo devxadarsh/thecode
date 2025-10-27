@@ -1,113 +1,114 @@
-<div *ngIf="currentPaymentConfig && hasLoadedConfig && !isLoading" formGroupName="dynamicFields">
+<div>
+                <div *ngIf="currentPaymentConfig" formGroupName="dynamicFields">
+                    <div *ngFor="let section of currentPaymentConfig.sections" class="config-section">
+                        <!-- <div class="section-title">{{ section.title }}</div> -->
 
+                        <!-- Loop through fields in each section -->
+                        <div *ngFor="let field of section.fields" class="checkbox-section">
 
-
-                <div *ngFor="let section of currentPaymentConfig.sections" class="config-section">
-                    <!-- <div class="section-title">{{ section.title }}</div> -->
-
-                    <!-- Loop through fields in each section -->
-                    <div *ngFor="let field of section.fields" class="checkbox-section">
-
-                        <!-- Info Type Field -->
-                        <div *ngIf="field.type === 'info'" class="info-text">
-                            {{ field.infoText }}
-                        </div>
-
-                        <!-- Checkbox Type Field -->
-                        <div *ngIf="field.type === 'checkbox'">
-                            <h4>{{ field.label }}</h4>
-
-                            <!-- Select All Option (only in edit mode) -->
-                            <div *ngIf="hasSelectAllOption(field) && isEditMode" class="select-all">
-                                <label class="checkbox-label select-all-label">
-                                    <input type="checkbox" [formControlName]="field.id + '_selectAll'" />
-                                    <span><strong>Select All</strong></span>
-                                </label>
+                            <!-- Info Type Field -->
+                            <div *ngIf="field.type === 'info'" class="info-text">
+                                {{ field.infoText }}
                             </div>
 
-                            <!-- Frequent Options (Grid Layout) -->
-                            <div *ngIf="getFrequentOptions(field).length > 0 && field.displayType === 'grid'"
-                                class="banks-grid">
-                                <label *ngFor="let option of getFrequentOptions(field)" [class.checkbox-label]="true"
-                                    [class.bank-checkbox]="true" [style.opacity]="isEditMode ? '1' : '0.7'"
-                                    [style.cursor]="isEditMode ? 'pointer' : 'default'">
-                                    <input type="checkbox" [value]="option.value"
-                                        (change)="onCheckboxChange(field.id, option.value, $event)"
-                                        [checked]="isOptionSelected(field.id, option.value)" [disabled]="!isEditMode" />
-                                    <span>{{ option.label }}</span>
-                                </label>
-                            </div>
+                            <!-- Checkbox Type Field -->
+                            <div *ngIf="field.type === 'checkbox'">
+                                <h4>{{ field.label }}</h4>
 
-                            <!-- All Options or Non-Frequent Options (Standard Layout) -->
-                            <div
-                                [ngClass]="field.displayType === 'grid' && getFrequentOptions(field).length > 0 ? '' : 'checkbox-group'">
-                                <!-- Show only "other" options if there are frequent ones displayed above -->
-                                <ng-container
-                                    *ngIf="getFrequentOptions(field).length > 0 && field.displayType === 'grid'">
-                                    <div *ngIf="getOtherOptions(field).length > 0" class="other-banks">
-                                        <h5 class="other-banks-title">Other Options</h5>
-                                        <div class="checkbox-group">
-                                            <label *ngFor="let option of getOtherOptions(field)" class="checkbox-label"
-                                                [style.opacity]="isEditMode ? '1' : '0.7'"
-                                                [style.cursor]="isEditMode ? 'pointer' : 'default'">
-                                                <input type="checkbox" [value]="option.value"
-                                                    (change)="onCheckboxChange(field.id, option.value, $event)"
-                                                    [checked]="isOptionSelected(field.id, option.value)"
-                                                    [disabled]="!isEditMode" />
-                                                <span>{{ option.label }}</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </ng-container>
+                                <!-- Select All Option (if applicable) -->
+                                <div *ngIf="hasSelectAllOption(field)" class="select-all">
+                                    <label class="checkbox-label select-all-label">
+                                        <input type="checkbox" [formControlName]="field.id + '_selectAll'" />
+                                        <span><strong>Select All</strong></span>
+                                    </label>
+                                </div>
 
-                                <!-- Show all options in standard layout -->
-                                <ng-container
-                                    *ngIf="!field.displayType || field.displayType !== 'grid' || getFrequentOptions(field).length === 0">
-                                    <label *ngFor="let option of field.options" class="checkbox-label"
-                                        [style.opacity]="isEditMode ? '1' : '0.7'"
-                                        [style.cursor]="isEditMode ? 'pointer' : 'default'">
+                                <!-- Frequent Options (Grid Layout) -->
+                                <div *ngIf="getFrequentOptions(field).length > 0 && field.displayType === 'grid'"
+                                    class="banks-grid">
+                                    <label *ngFor="let option of getFrequentOptions(field)"
+                                        class="checkbox-label bank-checkbox">
                                         <input type="checkbox" [value]="option.value"
                                             (change)="onCheckboxChange(field.id, option.value, $event)"
-                                            [checked]="isOptionSelected(field.id, option.value)"
-                                            [disabled]="!isEditMode || option.isMandatory" />
+                                            [checked]="isOptionSelected(field.id, option.value)" />
                                         <span>{{ option.label }}</span>
                                     </label>
-                                </ng-container>
+                                </div>
+
+                                <!-- All Options or Non-Frequent Options (Standard Layout) -->
+                                <div
+                                    [ngClass]="field.displayType === 'grid' && getFrequentOptions(field).length > 0 ? '' : 'checkbox-group'">
+                                    <!-- Show only "other" options if there are frequent ones displayed above -->
+                                    <ng-container
+                                        *ngIf="getFrequentOptions(field).length > 0 && field.displayType === 'grid'">
+                                        <div *ngIf="getOtherOptions(field).length > 0" class="other-banks">
+                                            <h5 class="other-banks-title">Other Options</h5>
+                                            <div class="checkbox-group">
+                                                <label *ngFor="let option of getOtherOptions(field)"
+                                                    class="checkbox-label">
+                                                    <input type="checkbox" [value]="option.value"
+                                                        (change)="onCheckboxChange(field.id, option.value, $event)"
+                                                        [checked]="isOptionSelected(field.id, option.value)" />
+                                                    <span>{{ option.label }}</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </ng-container>
+
+                                    <!-- Show all options in standard layout -->
+                                    <ng-container
+                                        *ngIf="!field.displayType || field.displayType !== 'grid' || getFrequentOptions(field).length === 0">
+                                        <label *ngFor="let option of field.options" class="checkbox-label">
+                                            <input type="checkbox" [value]="option.value"
+                                                (change)="onCheckboxChange(field.id, option.value, $event)"
+                                                [checked]="isOptionSelected(field.id, option.value)"
+                                                [disabled]="option.isMandatory" />
+                                            <span>{{ option.label }}</span>
+                                        </label>
+                                    </ng-container>
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- Select Type Field -->
-                        <div *ngIf="field.type === 'select'">
-                            <h4>{{ field.label }}</h4>
-                            <select [formControlName]="field.id" class="form-control">
-                                <option value="">-- Select {{ field.label }} --</option>
-                                <option *ngFor="let option of field.options" [value]="option.value">
-                                    {{ option.label }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <!-- Radio Type Field -->
-                        <div *ngIf="field.type === 'radio'">
-                            <h4>{{ field.label }}</h4>
-                            <div class="checkbox-group">
-                                <label *ngFor="let option of field.options" class="checkbox-label"
-                                    [style.opacity]="isEditMode ? '1' : '0.7'"
-                                    [style.cursor]="isEditMode ? 'pointer' : 'default'">
-                                    <input type="radio" [formControlName]="field.id" [value]="option.value"
-                                        [disabled]="!isEditMode" />
-                                    <span>{{ option.label }}</span>
-                                </label>
+                            <!-- Select Type Field -->
+                            <div *ngIf="field.type === 'select'">
+                                <h4>{{ field.label }}</h4>
+                                <select [formControlName]="field.id" class="form-control">
+                                    <option value="">-- Select {{ field.label }} --</option>
+                                    <option *ngFor="let option of field.options" [value]="option.value">
+                                        {{ option.label }}
+                                    </option>
+                                </select>
                             </div>
-                        </div>
 
-                        <!-- Text Type Field -->
-                        <div *ngIf="field.type === 'text'">
-                            <h4>{{ field.label }}</h4>
-                            <input type="text" [formControlName]="field.id" class="form-control"
-                                [placeholder]="'Enter ' + field.label" />
-                        </div>
+                            <!-- Radio Type Field -->
+                            <div *ngIf="field.type === 'radio'">
+                                <h4>{{ field.label }}</h4>
+                                <div class="checkbox-group">
+                                    <label *ngFor="let option of field.options" class="checkbox-label">
+                                        <input type="radio" [formControlName]="field.id" [value]="option.value" />
+                                        <span>{{ option.label }}</span>
+                                    </label>
+                                </div>
+                            </div>
 
+                            <!-- Text Type Field -->
+                            <div *ngIf="field.type === 'text'">
+                                <h4>{{ field.label }}</h4>
+                                <input type="text" [formControlName]="field.id" class="form-control"
+                                    [placeholder]="'Enter ' + field.label" />
+                            </div>
+
+                        </div>
                     </div>
+                </div>
+
+                <!-- Action Buttons - Only show when payment mode is selected -->
+                <div *ngIf="isPaymentModeSelected" class="action-buttons">
+                    <button type="button" class="btn btn-primary" (click)="onSave()">
+                        <span class="icon">💾</span> Save Configuration
+                    </button>
+                    <button type="button" class="btn btn-secondary" (click)="onReset()">
+                        <span class="icon">🔄</span> Reset Form
+                    </button>
                 </div>
             </div>
