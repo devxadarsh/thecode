@@ -1,207 +1,193 @@
-// view-payment-mode.component.ts
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
-import { PaymentConfigService } from '../payment-mode/payment-config.service';
-import { ReactiveFormsModule } from '@angular/forms';
+<div class="payment-mode-container">
+    <!-- Loading State -->
+    <div *ngIf="isLoading" style="text-align: center; padding: 60px 20px;">
+        <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
+        <p style="font-size: 18px; color: #666;">Loading configuration...</p>
+    </div>
 
-interface ConfigField {
-  id: string;
-  label: string;
-  type: 'checkbox' | 'radio' | 'select' | 'text' | 'info';
-  options?: FieldOption[];
-  displayType?: 'grid' | 'list';
-  gridColumns?: number;
-  required?: boolean;
-  infoText?: string;
-}
+    <!-- Error State -->
+    <div *ngIf="!isLoading && errorMessage" style="text-align: center; padding: 60px 20px;">
+        <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+        <p style="font-size: 18px; color: #f44336; margin-bottom: 30px;">{{ errorMessage }}</p>
+        <button type="button" class="btn btn-secondary" (click)="onBack()">
+            <span class="icon">⬅️</span> Go Back
+        </button>
+    </div>
 
-interface FieldOption {
-  value: string;
-  label: string;
-  isFrequent?: boolean;
-}
+    <!-- Main Content -->
+    <div *ngIf="!isLoading && savedConfiguration && paymentModeConfig">
 
-interface PaymentModeConfig {
-  paymentMode: string;
-  sections: ConfigSection[];
-}
+        <!-- Header -->
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <h2>Payment Mode Configuration Details</h2>
+                    <p class="subtitle">View complete configuration for selected merchant and payment mode</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-secondary btn-small" (click)="onBack()">
+                        <span class="icon">⬅️</span> Back
+                    </button>
+                    <button type="button" class="btn btn-primary btn-small" (click)="onEdit()">
+                        <span class="icon">✏️</span> Edit
+                    </button>
+                </div>
+            </div>
+        </div>
 
-interface ConfigSection {
-  id: string;
-  title: string;
-  fields: ConfigField[];
-}
+        <!-- Basic Information Card -->
+        <div class="config-section" style="margin-bottom: 25px;">
+            <div class="section-title">Basic Information</div>
 
-interface SavedConfiguration {
-  configurationId: string;
-  merchantId: string;
-  merchantName?: string;
-  paymentMode: string;
-  config: any;
-  createdAt?: string;
-  updatedAt?: string;
-}
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                <div class="info-item">
+                    <div class="info-label">Merchant ID</div>
+                    <div class="info-value">{{ savedConfiguration.merchantId }}</div>
+                </div>
 
-@Component({
-  selector: 'app-edit-payment-mode',
-  standalone: true,
-  imports: [ReactiveFormsModule, CommonModule],
-  templateUrl: './edit-payment-mode.component.html',
-  styleUrls: ['./edit-payment-mode.component.scss']
-})
-export class EditPaymentModeComponent implements OnInit {
-  savedConfiguration: SavedConfiguration | null = null;
-  paymentModeConfig: PaymentModeConfig | null = null;
-  isLoading: boolean = true;
-  errorMessage: string | null = null;
+                <div class="info-item">
+                    <div class="info-label">Payment Mode</div>
+                    <div class="info-value">
+                        <span class="payment-mode-badge">{{ savedConfiguration.paymentMode }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private paymentConfigService: PaymentConfigService
-  ) { }
+        <!-- Configuration Details -->
+        <div *ngFor="let section of paymentModeConfig.sections" class="config-section">
+            <div class="section-title">{{ section.title }}</div>
 
-  ngOnInit(): void {
-    // Get merchantId and paymentMode from route params
-    this.route.params.subscribe(params => {
-      const merchantId = params['merchantId'];
-      const paymentMode = params['paymentMode'];
+            <div class="config-details">
+                <div *ngFor="let field of section.fields" class="config-field-item">
 
-      if (merchantId && paymentMode) {
-        this.loadConfiguration(merchantId, paymentMode);
-      } else {
-        this.errorMessage = 'Invalid route parameters';
-        this.isLoading = false;
-      }
-    });
+                    <!-- Skip info type fields -->
+                    <ng-container *ngIf="field.type !== 'info'">
+                        <div class="field-row">
+                            <div class="field-label">
+                                <span class="field-icon">📋</span>
+                                {{ field.label }}
+                            </div>
+                            <div class="field-value" [class.empty-value]="!hasFieldValue(field.id)">
+                                {{ getFieldDisplayValue(field.id) }}
+                            </div>
+                        </div>
+                    </ng-container>
 
-    // Alternative: Get from query params
-    // this.route.queryParams.subscribe(params => {
-    //   const merchantId = params['merchantId'];
-    //   const paymentMode = params['paymentMode'];
-    //   if (merchantId && paymentMode) {
-    //     this.loadConfiguration(merchantId, paymentMode);
-    //   }
-    // });
-  }
+                    <!-- Info type fields -->
+                    <div *ngIf="field.type === 'info'" class="info-text" style="margin: 10px 0;">
+                        {{ field.infoText }}
+                    </div>
 
-  loadConfiguration(merchantId: string, paymentMode: string): void {
-    this.isLoading = true;
+                </div>
+            </div>
+        </div>
 
-    // First load the payment mode config structure
-    this.paymentConfigService.getPaymentModeConfig(paymentMode).subscribe({
-      next: (config) => {
-        this.paymentModeConfig = config;
+        <!-- No Configuration Data -->
+        <div *ngIf="!paymentModeConfig.sections || paymentModeConfig.sections.length === 0" class="info-text"
+            style="text-align: center; margin: 30px 0;">
+            No configuration fields available for this payment mode.
+        </div>
 
-        // Then load the saved configuration
-        this.loadSavedConfiguration(merchantId, paymentMode);
-      },
-      error: (error) => {
-        console.error('Error loading payment mode config:', error);
-        this.errorMessage = 'Error loading payment mode configuration';
-        this.isLoading = false;
-      }
-    });
-  }
+    </div>
+</div>
 
-  loadSavedConfiguration(merchantId: string, paymentMode: string): void {
-    this.paymentConfigService.getSavedConfiguration(merchantId, paymentMode).subscribe({
-      next: (savedConfig) => {
-        this.savedConfiguration = savedConfig;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading saved configuration:', error);
-        this.errorMessage = 'No configuration found for this merchant and payment mode';
-        this.isLoading = false;
-      }
-    });
-  }
-
-  // Get field configuration by ID
-  getFieldConfig(fieldId: string): ConfigField | null {
-    if (!this.paymentModeConfig) return null;
-
-    for (const section of this.paymentModeConfig.sections) {
-      const field = section.fields.find(f => f.id === fieldId);
-      if (field) return field;
-    }
-    return null;
-  }
-
-  // Get selected values as readable text
-  getFieldDisplayValue(fieldId: string): string {
-    if (!this.savedConfiguration?.config) return 'Not configured';
-
-    const value = this.savedConfiguration.config[fieldId];
-    const fieldConfig = this.getFieldConfig(fieldId);
-
-    if (!value) return 'Not selected';
-    if (!fieldConfig) return value;
-
-    // Handle different field types
-    if (fieldConfig.type === 'checkbox' && Array.isArray(value)) {
-      if (value.length === 0) return 'Not selected';
-
-      const labels = value.map(v => {
-        const option = fieldConfig.options?.find(opt => opt.value === v);
-        return option ? option.label : v;
-      });
-      return labels.join(', ');
+<style>
+    .info-item {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border-left: 3px solid #4CAF50;
     }
 
-    if (fieldConfig.type === 'radio' || fieldConfig.type === 'select') {
-      const option = fieldConfig.options?.find(opt => opt.value === value);
-      return option ? option.label : value;
+    .info-label {
+        font-size: 12px;
+        color: #666;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
     }
 
-    if (fieldConfig.type === 'text') {
-      return value || 'Not provided';
+    .info-value {
+        font-size: 16px;
+        color: #333;
+        font-weight: 500;
     }
 
-    return value;
-  }
-
-  // Check if field has value
-  hasFieldValue(fieldId: string): boolean {
-    if (!this.savedConfiguration?.config) return false;
-    const value = this.savedConfiguration.config[fieldId];
-
-    if (Array.isArray(value)) {
-      return value.length > 0;
+    .payment-mode-badge {
+        display: inline-block;
+        padding: 6px 16px;
+        background: #4CAF50;
+        color: white;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
     }
 
-    return !!value;
-  }
+    .config-details {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
 
-  // Navigate to edit page
-  onEdit(): void {
-    if (this.savedConfiguration) {
-      this.router.navigate(['/edit-payment-mode'], {
-        queryParams: {
-          merchantId: this.savedConfiguration.merchantId,
-          paymentMode: this.savedConfiguration.paymentMode
+    .config-field-item {
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 15px;
+    }
+
+    .config-field-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .field-row {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+
+    .field-label {
+        font-weight: 600;
+        color: #555;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .field-icon {
+        font-size: 16px;
+    }
+
+    .field-value {
+        font-size: 15px;
+        color: #333;
+        background: #f8f9fa;
+        padding: 12px 16px;
+        border-radius: 6px;
+        line-height: 1.6;
+        word-break: break-word;
+    }
+
+    .empty-value {
+        color: #999;
+        font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+        .field-row {
+            grid-template-columns: 1fr;
+            gap: 8px;
         }
-      });
+
+        .info-item {
+            padding: 12px;
+        }
+
+        .info-value {
+            font-size: 14px;
+        }
     }
-  }
-
-  // Go back
-  onBack(): void {
-    this.router.navigate(['/payment-modes']);
-  }
-
-  // Format date
-  formatDate(dateString?: string): string {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-}
+</style>
