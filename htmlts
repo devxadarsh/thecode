@@ -1,25 +1,11 @@
-// import { Injectable } from '@angular/core';
+// view-payment-mode.component.ts
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
+import { PaymentConfigService } from '../payment-mode/payment-config.service';
+import { ReactiveFormsModule } from '@angular/forms';
 
-// @Injectable({
-//   providedIn: 'root'
-// })
-// export class PaymentConfigService {
-
-//   constructor() { }
-// }
-
-
-// payment-config.service.ts
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-export interface Merchant {
-  id: string;
-  name: string;
-}
-
-export interface ConfigField {
+interface ConfigField {
   id: string;
   label: string;
   type: 'checkbox' | 'radio' | 'select' | 'text' | 'info';
@@ -30,392 +16,192 @@ export interface ConfigField {
   infoText?: string;
 }
 
-export interface FieldOption {
+interface FieldOption {
   value: string;
   label: string;
   isFrequent?: boolean;
-  isMandatory?: boolean;
 }
 
-export interface PaymentModeConfig {
+interface PaymentModeConfig {
   paymentMode: string;
   sections: ConfigSection[];
 }
 
-export interface ConfigSection {
+interface ConfigSection {
   id: string;
   title: string;
   fields: ConfigField[];
 }
 
-export interface SaveConfigurationRequest {
+interface SavedConfiguration {
+  configurationId: string;
   merchantId: string;
+  merchantName?: string;
   paymentMode: string;
   config: any;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface SaveConfigurationResponse {
-  success: boolean;
-  message: string;
-  configurationId?: string;
-}
-
-@Injectable({
-  providedIn: 'root'
+@Component({
+  selector: 'app-edit-payment-mode',
+  standalone: true,
+  imports: [ReactiveFormsModule, CommonModule],
+  templateUrl: './edit-payment-mode.component.html',
+  styleUrls: ['./edit-payment-mode.component.scss']
 })
-export class PaymentConfigService {
-  private apiBaseUrl = '/api'; // Change this to your actual API base URL
+export class EditPaymentModeComponent implements OnInit {
+  savedConfiguration: SavedConfiguration | null = null;
+  paymentModeConfig: PaymentModeConfig | null = null;
+  isLoading: boolean = true;
+  errorMessage: string | null = null;
 
-  constructor(private http: HttpClient) { }
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private paymentConfigService: PaymentConfigService
+  ) { }
 
-  /**
-   * Get list of all merchants
-   */
-  getMerchants(): Observable<Merchant[]> {
-    return this.http.get<Merchant[]>(`${this.apiBaseUrl}/merchants`);
-  }
+  ngOnInit(): void {
+    // Get merchantId and paymentMode from route params
+    this.route.params.subscribe(params => {
+      const merchantId = params['merchantId'];
+      const paymentMode = params['paymentMode'];
 
-  /**
-   * Get list of available payment modes
-   */
-  getPaymentModes(): Observable<string[]> {
-    return this.http.get<string[]>(`${this.apiBaseUrl}/payment-modes`);
-  }
-
-  /**
-   * Get configuration schema for a specific payment mode
-   * This returns the dynamic structure (sections, fields, options) for the payment mode
-   */
-  getPaymentModeConfigEdit(paymentMode: string): Observable<PaymentModeConfig> {
-    // return this.http.get<PaymentModeConfig>(
-    //   `${this.apiBaseUrl}/payment-mode-config/${paymentMode}`
-    // );
-    const configs: { [key: string]: PaymentModeConfig } = {
-      'Card': {
-        paymentMode: 'Card',
-        sections: [
-          {
-            id: 'card_config',
-            title: 'Card Configuration',
-            fields: [
-              {
-                id: 'cardSubPaymentModes',
-                label: 'Select Sub Payment Mode',
-                type: 'checkbox',
-                options: [
-                  { value: 'debit', label: 'Debit Card' },
-                  { value: 'credit', label: 'Credit Card' },
-                  { value: 'prepaid', label: 'Prepaid Card' }
-                ]
-              },
-              {
-                id: 'cardRegions',
-                label: 'Select Region',
-                type: 'checkbox',
-                options: [
-                  { value: 'domestic', label: 'Domestic' },
-                  { value: 'international', label: 'International' }
-                ]
-              },
-              {
-                id: 'cardProductTypes',
-                label: 'Select Product Type',
-                type: 'checkbox',
-                options: [
-                  { value: 'standard', label: 'Standard' },
-                  { value: 'premium', label: 'Premium' },
-                  { value: 'corporate', label: 'Corporate' },
-                  { value: 'super_premium', label: 'Super Premium' }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      'UPI': {
-        paymentMode: 'UPI',
-        sections: [
-          {
-            id: 'upi_config',
-            title: 'UPI Configuration',
-            fields: [
-              {
-                id: 'upiSubModes',
-                label: 'Select Sub Payment Mode',
-                type: 'checkbox',
-                options: [
-                  { value: 'savings', label: 'Savings' },
-                  { value: 'credit', label: 'Credit' }
-                ]
-              },
-              {
-                id: 'upiTypes',
-                label: 'Select Type',
-                type: 'checkbox',
-                options: [
-                  { value: 'collect', label: 'Collect' },
-                  { value: 'qr', label: 'QR' },
-                  { value: 'intent', label: 'Intent' }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      'Net Banking': {
-        paymentMode: 'Net Banking',
-        sections: [
-          {
-            id: 'netbanking_config',
-            title: 'Net Banking Configuration',
-            fields: [
-              {
-                id: 'selectedBanks',
-                label: 'Select Banks',
-                type: 'checkbox',
-                displayType: 'grid',
-                gridColumns: 5,
-                options: [
-                  { value: 'B001', label: 'State Bank of India', isFrequent: true },
-                  { value: 'B002', label: 'HDFC Bank', isFrequent: true },
-                  { value: 'B003', label: 'ICICI Bank', isFrequent: true },
-                  { value: 'B004', label: 'Axis Bank', isFrequent: true },
-                  { value: 'B005', label: 'Kotak Mahindra Bank', isFrequent: true },
-                  { value: 'B006', label: 'Punjab National Bank', isFrequent: true },
-                  { value: 'B007', label: 'Bank of Baroda', isFrequent: true },
-                  { value: 'B008', label: 'Canara Bank', isFrequent: true },
-                  { value: 'B009', label: 'IDBI Bank', isFrequent: true },
-                  { value: 'B010', label: 'Yes Bank', isFrequent: true },
-                  { value: 'B011', label: 'IndusInd Bank', isFrequent: false },
-                  { value: 'B012', label: 'Federal Bank', isFrequent: false },
-                  { value: 'B013', label: 'IDFC First Bank', isFrequent: false },
-                  { value: 'B014', label: 'RBL Bank', isFrequent: false },
-                  { value: 'B015', label: 'Bank of India', isFrequent: false }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      'EMI': {
-        paymentMode: 'EMI',
-        sections: [
-          {
-            id: 'emi_config',
-            title: 'EMI Configuration',
-            fields: [
-              {
-                id: 'emiPaymentModes',
-                label: 'Select Payment Mode',
-                type: 'checkbox',
-                options: [
-                  { value: 'debit', label: 'Debit Card' },
-                  { value: 'credit', label: 'Credit Card' }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      'FT': {
-        paymentMode: 'FT',
-        sections: [
-          {
-            id: 'ft_config',
-            title: 'FT Configuration',
-            fields: [
-              {
-                id: 'ft_info',
-                label: '',
-                type: 'info',
-                infoText: 'No additional configuration required for FT payment mode.'
-              }
-            ]
-          }
-        ]
-      },
-      'Wallet': {
-        paymentMode: 'Wallet',
-        sections: [
-          {
-            id: 'wallet_config',
-            title: 'Wallet Configuration',
-            fields: [
-              {
-                id: 'walletProviders',
-                label: 'Select Wallet Providers',
-                type: 'checkbox',
-                options: [
-                  { value: 'paytm', label: 'Paytm' },
-                  { value: 'phonepe', label: 'PhonePe' },
-                  { value: 'gpay', label: 'Google Pay' },
-                  { value: 'amazonpay', label: 'Amazon Pay' },
-                  { value: 'mobikwik', label: 'Mobikwik' }
-                ]
-              }
-            ]
-          }
-        ]
+      if (merchantId && paymentMode) {
+        this.loadConfiguration(merchantId, paymentMode);
+      } else {
+        this.errorMessage = 'Invalid route parameters';
+        this.isLoading = false;
       }
-    };
+    });
 
-    // return configs[paymentMode] || { paymentMode, sections: [] };
-    return new Observable<PaymentModeConfig>(observer => {
-      observer.next(configs[paymentMode] || { paymentMode, sections: [] });
-      observer.complete();
+    // Alternative: Get from query params
+    // this.route.queryParams.subscribe(params => {
+    //   const merchantId = params['merchantId'];
+    //   const paymentMode = params['paymentMode'];
+    //   if (merchantId && paymentMode) {
+    //     this.loadConfiguration(merchantId, paymentMode);
+    //   }
+    // });
+  }
+
+  loadConfiguration(merchantId: string, paymentMode: string): void {
+    this.isLoading = true;
+
+    // First load the payment mode config structure
+    this.paymentConfigService.getPaymentModeConfig(paymentMode).subscribe({
+      next: (config) => {
+        this.paymentModeConfig = config;
+
+        // Then load the saved configuration
+        this.loadSavedConfiguration(merchantId, paymentMode);
+      },
+      error: (error) => {
+        console.error('Error loading payment mode config:', error);
+        this.errorMessage = 'Error loading payment mode configuration';
+        this.isLoading = false;
+      }
     });
   }
 
-  /**
-   * Get configuration schema for a specific payment mode
-   * This returns the dynamic structure (sections, fields, options) for the payment mode
-   */
-  getPaymentModeConfig(paymentMode: string): Observable<PaymentModeConfig> {
-    return this.http.get<PaymentModeConfig>(
-      `${this.apiBaseUrl}/payment-mode-config/${paymentMode}`
-    );
-    const mockResponse: PaymentModeConfig = {
-      paymentMode: 'Card',
-      sections: [
-        {
-          id: 'card_config',
-          title: 'Card Configuration',
-          fields: [
-            {
-              id: 'cardSubPaymentModes',
-              label: 'Select Sub Payment Mode',
-              type: 'checkbox',
-              options: [
-                { value: 'debit', label: 'Debit Card' },
-                { value: 'credit', label: 'Credit Card' },
-                { value: 'prepaid', label: 'Prepaid Card' }
-              ]
-            },
-            {
-              id: 'cardRegions',
-              label: 'Select Region',
-              type: 'checkbox',
-              options: [
-                { value: 'domestic', label: 'Domestic' },
-                { value: 'international', label: 'International' }
-              ]
-            },
-            {
-              id: 'cardProductTypes',
-              label: 'Select Product Type',
-              type: 'checkbox',
-              options: [
-                { value: 'standard', label: 'Standard' },
-                { value: 'premium', label: 'Premium' },
-                { value: 'corporate', label: 'Corporate' },
-                { value: 'super_premium', label: 'Super Premium' }
-              ]
-            }
-          ]
+  loadSavedConfiguration(merchantId: string, paymentMode: string): void {
+    this.paymentConfigService.getSavedConfiguration(merchantId, paymentMode).subscribe({
+      next: (savedConfig) => {
+        this.savedConfiguration = savedConfig;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading saved configuration:', error);
+        this.errorMessage = 'No configuration found for this merchant and payment mode';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  // Get field configuration by ID
+  getFieldConfig(fieldId: string): ConfigField | null {
+    if (!this.paymentModeConfig) return null;
+
+    for (const section of this.paymentModeConfig.sections) {
+      const field = section.fields.find(f => f.id === fieldId);
+      if (field) return field;
+    }
+    return null;
+  }
+
+  // Get selected values as readable text
+  getFieldDisplayValue(fieldId: string): string {
+    if (!this.savedConfiguration?.config) return 'Not configured';
+
+    const value = this.savedConfiguration.config[fieldId];
+    const fieldConfig = this.getFieldConfig(fieldId);
+
+    if (!value) return 'Not selected';
+    if (!fieldConfig) return value;
+
+    // Handle different field types
+    if (fieldConfig.type === 'checkbox' && Array.isArray(value)) {
+      if (value.length === 0) return 'Not selected';
+
+      const labels = value.map(v => {
+        const option = fieldConfig.options?.find(opt => opt.value === v);
+        return option ? option.label : v;
+      });
+      return labels.join(', ');
+    }
+
+    if (fieldConfig.type === 'radio' || fieldConfig.type === 'select') {
+      const option = fieldConfig.options?.find(opt => opt.value === value);
+      return option ? option.label : value;
+    }
+
+    if (fieldConfig.type === 'text') {
+      return value || 'Not provided';
+    }
+
+    return value;
+  }
+
+  // Check if field has value
+  hasFieldValue(fieldId: string): boolean {
+    if (!this.savedConfiguration?.config) return false;
+    const value = this.savedConfiguration.config[fieldId];
+
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+
+    return !!value;
+  }
+
+  // Navigate to edit page
+  onEdit(): void {
+    if (this.savedConfiguration) {
+      this.router.navigate(['/edit-payment-mode'], {
+        queryParams: {
+          merchantId: this.savedConfiguration.merchantId,
+          paymentMode: this.savedConfiguration.paymentMode
         }
-      ]
-    };
-    return new Observable<PaymentModeConfig>(observer => {
-      observer.next(mockResponse);
-      observer.complete();
+      });
+    }
+  }
+
+  // Go back
+  onBack(): void {
+    this.router.navigate(['/payment-modes']);
+  }
+
+  // Format date
+  formatDate(dateString?: string): string {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
-  }
-
-  /**
-   * Get saved configuration for a specific merchant and payment mode
-   * This returns previously saved values for the merchant
-   */
-  getSavedConfiguration(merchantId: string, paymentMode: string): Observable<any> {
-    // return this.http.get(
-    //   `${this.apiBaseUrl}/payment-configuration/${merchantId}/${paymentMode}`
-    // );
-    const mockResponse = localStorage.getItem(`${merchantId}_${paymentMode}`) ? JSON.parse(localStorage.getItem(`${merchantId}_${paymentMode}`)!) : {};
-    return new Observable<any>(observer => {
-      observer.next(mockResponse);
-      observer.complete();
-    });
-
-  }
-
-  /**
-   * Save payment mode configuration for a merchant
-   */
-  saveConfiguration(request: SaveConfigurationRequest): Observable<SaveConfigurationResponse> {
-    return this.http.post<SaveConfigurationResponse>(
-      `${this.apiBaseUrl}/payment-configuration`,
-      request
-    );
-  }
-
-  /**
-   * Update existing payment mode configuration
-   */
-  updateConfiguration(
-    configurationId: string,
-    request: SaveConfigurationRequest
-  ): Observable<SaveConfigurationResponse> {
-    return this.http.put<SaveConfigurationResponse>(
-      `${this.apiBaseUrl}/payment-configuration/${configurationId}`,
-      request
-    );
-  }
-
-  /**
-   * Delete payment mode configuration
-   */
-  deleteConfiguration(configurationId: string): Observable<SaveConfigurationResponse> {
-    return this.http.delete<SaveConfigurationResponse>(
-      `${this.apiBaseUrl}/payment-configuration/${configurationId}`
-    );
   }
 }
-
-/**
- * API Response Examples:
- * 
- * 1. GET /api/merchants
- * [
- *   { "id": "M001", "name": "Merchant 001" },
- *   { "id": "M002", "name": "Merchant 002" }
- * ]
- * 
- * 2. GET /api/payment-modes
- * ["Card", "UPI", "Net Banking", "EMI", "FT", "Wallet"]
- * 
- * 3. GET /api/payment-mode-config/Card
- * {
- *   "paymentMode": "Card",
- *   "sections": [
- *     {
- *       "id": "card_config",
- *       "title": "Card Configuration",
- *       "fields": [
- *         {
- *           "id": "cardSubPaymentModes",
- *           "label": "Select Sub Payment Mode",
- *           "type": "checkbox",
- *           "options": [
- *             { "value": "debit", "label": "Debit Card" },
- *             { "value": "credit", "label": "Credit Card" }
- *           ]
- *         }
- *       ]
- *     }
- *   ]
- * }
- * 
- * 4. POST /api/payment-configuration
- * Request: {
- *   "merchantId": "M001",
- *   "paymentMode": "Card",
- *   "config": {
- *     "cardSubPaymentModes": ["debit", "credit"],
- *     "cardRegions": ["domestic"]
- *   }
- * }
- * Response: {
- *   "success": true,
- *   "message": "Configuration saved successfully",
- *   "configurationId": "CONFIG_12345"
- * }
- */
